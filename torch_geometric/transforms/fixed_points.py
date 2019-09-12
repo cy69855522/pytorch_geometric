@@ -1,4 +1,8 @@
+    
+from __future__ import division
+
 import re
+import math
 
 import torch
 import numpy as np
@@ -7,9 +11,12 @@ import numpy as np
 class FixedPoints(object):
     r"""Samples a fixed number of :obj:`num` points and features from a point
     cloud.
-
     Args:
         num (int): The number of points to sample.
+        replace (bool, optional): If set to :obj:`False`, samples fixed
+            points without replacement. In case :obj:`num` is greater than
+            the number of points, duplicated points are kept to a
+            minimum. (default: :obj:`True`)
     """
 
     def __init__(self, num, replace=True):
@@ -18,7 +25,14 @@ class FixedPoints(object):
 
     def __call__(self, data):
         num_nodes = data.num_nodes
-        choice = np.random.choice(data.num_nodes, self.num, replace=self.replace)
+
+        if self.replace:
+            choice = np.random.choice(data.num_nodes, self.num, replace=True)
+        else:
+            choice = torch.cat([
+                torch.randperm(num_nodes)
+                for _ in range(math.ceil(num_nodes / self.num))
+            ], dim=0)[:self.num]
 
         for key, item in data:
             if bool(re.search('edge', key)):
@@ -29,4 +43,5 @@ class FixedPoints(object):
         return data
 
     def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__, self.num)
+        return '{}({}, replace={})'.format(self.__class__.__name__, self.num,
+                                           self.replace)
